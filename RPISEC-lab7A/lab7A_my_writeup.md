@@ -311,7 +311,7 @@ Simplified heap memory layout for x86 binary (ptmalloc3 heap implementation, the
 Also, consider this line of code in ```print_index``` function: ```messages[i]->print_msg(messages[i]);```. Initially, the ```print_message``` function is intended to be called always via this function pointer
 , but the above mentioned corruption allows to overflow the chunk and overwrite the function pointer of the next chunk in memory with arbitrary address.
 
-Let's take a look how instruction pointer can be controlled via the corruption. I'm using ```pwntools``` Python framework which eases 
+Let's take a look how instruction pointer can be controlled via the corruption. I use ```pwntools``` Python framework which simplifies 
 A LOT of tasks during the exploit development. A convenient shellcoding and GDB integration are my favorite ;) 
 
 ```
@@ -429,9 +429,9 @@ Now, I need to know where to place my payload in memory, but first of all let's 
 
 ![image](https://user-images.githubusercontent.com/45107680/95113498-377fdc00-074b-11eb-8355-cd5ba981e9cb.png)
 
-There are stack canaries, but it doesn't seem to bother me, because stack is not that much used in this program, maybe the payload needs to be written to the heap, who knows ;) 
+There are stack canaries, but it doesn't seem to bother me too much, because stack is not that much used in this program, maybe the payload needs to be written to the heap, who knows ;) 
 
-NX is on, which means that every virtual memory page is either writable OR executable. That means that writing a shellcode to stack/heap and then jumping to it is not a viable option. I can bypass it via ROP (Return Oriented Programming). 
+NX is on, which means that every virtual memory page is either writable OR executable, not writable and executable at the same time. That means that writing a shellcode to stack/heap and then jumping to it is not a viable option. I can bypass it via ROP (Return Oriented Programming). 
 
 The binary was not compiled as PIE, good news! It means that binary image addresses are not affected by ASLR, so I can hardcode any address related to a binary image. Stack and heap addresses are affected by ASLR though, so there is no option to hardcode them. The rest of the mitigations are not relevant for this challenge, at least for my solution.
 
@@ -468,7 +468,7 @@ There is a ```numbuf``` 32-bytes buffer, but it seems to take a valid index and 
 
 ![strtoul](https://user-images.githubusercontent.com/45107680/95120915-f261a700-0756-11eb-893e-abf191b2ab99.png)
 
-Hmm, interesting... It seems that I can provide a valid index and then pad the remaining buffer with arbitrary values. Let's alter the script and check that!
+Hmm, interesting... It seems that I can provide a valid index and then pad the remaining buffer with arbitrary values. Let's alter the script and check it out:
 
 ```
 from pwn import *
@@ -532,7 +532,7 @@ Green arrow - as I have 2 dummy pops from the stack pivot gadget, this memory ca
 
 Orange underline - the last 4 bytes that I control in ```numbuf``` buffer (in fact there are 3 more bytes, but it's not aligned to stack, so there is a big chance that I won't have a gadget to use them somehow)
 
-So, I have roughly 20 bytes for a short ROP chain that must make a stack pointer to point at the heap address which resides in ```edx``` register during execution flow hijacking. Not so bad, but are there appropriate gadgets in the binary that will assign ```edx``` value to ```esp``` somehow? After some tinkering, I came up with a short and, as I think, elegant gadget sequence that tricks the stack pointer to point at the heap :) Let's take a look at these gadgets that I've found:
+So, I have roughly 20 bytes for a short ROP chain that must make a stack pointer to point at the heap address which resides in ```edx``` register during execution flow hijacking. Not so bad, but are there appropriate gadgets in the binary that will assign ```edx``` value to ```esp``` somehow? After some time of tinkering, I came up with a short and, as I think, elegant gadget sequence that tricks the stack pointer to point at the heap :) Let's take a look at these gadgets that I've found:
 
 ```mov eax, edx ; ret```
 
@@ -548,7 +548,7 @@ After pivoting into ```numbuf```, ```esp``` points to ```0xffa9d02c``` (marked w
 
 Perfect! After this short ROP chain execution ```esp``` register points at ```0x99c2ae4```, which is edx + 4, and edx points to ```messages[i]``` where i is the index of the chunk with a corrupted function pointer. Now the program is tricked to treat a heap as a stack!
 
-Pay attention, that the last gadget returned the execution flow back to the stack pivoting gadget. That's because [edx] = stack pivoting gadget which initially overwrote the valid function pointer in the corrupted chunk. But for now it doesn't matter, because ```esp``` now points at heap that fully controlled by the attacker, unlike stack. I need to pad the odd space in the heap created by the second stack pivoting gadget execution with a garbage and concatenate another ROP chain with a final payload. 
+Pay attention, that the last gadget returned the execution flow back to the stack pivoting gadget. That's because [edx] = stack pivoting gadget address which initially overwrote the valid function pointer in the corrupted chunk. But for now it doesn't matter, because ```esp``` now points at heap that fully controlled by the attacker, unlike stack. I need to pad the odd space in the heap created by the second stack pivoting gadget execution with a garbage and concatenate another ROP chain with a final payload. 
 
 The "main" ROP chain will fill an appropriate registers and issue the software interrupt to invoke ```execve``` syscall. The rest of the ROP chain crafting was trivial, but I want to write a couple of things about ```ebx``` register that must contain a pointer to ```/bin/sh``` string needed for popping a shell. There is no ```/bin/sh``` string in the binary, so I need to write this string into the binary by myself. Fortunately, ROP is very powerful technique that was proven to be Turing-complete (yes, you can craft a freaking entire arbitrary program inside of the other program without code injection, that's sick), so I need to find a gadget that gives me, what is called, write-what-where primitive. I can easily control ```eax``` and ```edx``` registers via ```pop eax ; ret``` and ```pop edx ; ret```, so I've picked this gadget for WWW -> ```mov dword ptr [edx], eax ; ret```. 
 
@@ -607,10 +607,10 @@ if __name__ == "__main__":
         print("Usage : python {} <path to vulnerable program>".format(sys.argv[0]))
         sys.exit(1)
     io = process(sys.argv[1])
-    gdb.attach(io, '''
-    b *print_index + 158
-    c
-    ''')
+    #gdb.attach(io, '''
+    #b *print_index + 158
+    #c
+    #''')
 
     ptr_size = 4
     msg_len = 128
@@ -618,7 +618,6 @@ if __name__ == "__main__":
     offset_to_main_rop_chain = 32
     numbuf_padding = 7
     corrupted_chunk_idx = 1
-    first_chunk_len = 130
     bin_sh_str_address = p32(0x80ec704)
     garbage_byte = b'\x41'
 
@@ -665,6 +664,7 @@ if __name__ == "__main__":
     pivot_to_heap_gadget = p32(0x0804bb6c)
 
     # first chunk allocation that will overflow the second
+    first_chunk_len = 130
     first_chunk_payload = garbage_byte * msg_len + p32(offset_to_func_ptr + 
                                                        ptr_size + 
                                                        offset_to_main_rop_chain +
@@ -687,7 +687,7 @@ if __name__ == "__main__":
     io.interactive()
 ```
 
-Now let's fire the actual RPISEC VM where the challenge and its' flag reside (change the exploit according to your host-guest VM network settings):
+Now let's exploit the actual RPISEC VM where the challenge and its' flag reside (change the exploit according to your host-guest VM network settings):
 
 ![image](https://user-images.githubusercontent.com/45107680/95243635-9a3fa900-0819-11eb-9caa-940454fcd316.png)
 
