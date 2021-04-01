@@ -294,7 +294,7 @@ if (10000000 < (int)*points) {
 }
 ```
 In an intended solution it seems like I need to overwrite the value which is pointed by the ```points``` pointer. If this memory is overwritten with value that is greater than 10000000, the flag is printed out.
-Meh, it looks too boring ;) I've decided not to be boring but creative and gain remote code execution on the server that hosts this challenge and pop a shell.
+Meh, it looks too boring ;) I've decided not to be boring but creative and gain remote code execution on the server that hosts this challenge and pop a remote shell.
 
 First of all, need to check the mitigations applied for the given binary:
 
