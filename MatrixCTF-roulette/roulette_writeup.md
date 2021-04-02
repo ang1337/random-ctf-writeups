@@ -391,7 +391,7 @@ Offset #33 - master pointer
 Offset #47 - slave pointer
 Offset #53 - this offset has been chosen arbitrarily (doesn't really matter, it just needs to be a valid stack entry), it will be used to write arbitrary pointers into it to be dereferenced for read/write further.
 ```
-Now, I need to find gadgets that allows me to construct a payload which computationally equals to ```execve("/bin/sh", NULL, NULL)``` or ```system("/bin/sh")```.
+Now, I need to find gadgets that allow me to construct a payload which computationally equals to ```execve("/bin/sh", NULL, NULL)``` or ```system("/bin/sh")```.
 Bad news, there are no ```syscall``` gadgets in the binary, so I cannot trigger syscalls via a ROP chain. So, I need to know the address of ```system``` and the address of "/bin/sh" string.
 But there is a problem, I don't know which libc version is used on the remote server. How to figure it out? Take a couple of minutes to think about it before you continue...
 
