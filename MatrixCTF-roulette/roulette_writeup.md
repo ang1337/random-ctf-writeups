@@ -283,7 +283,7 @@ Let the printf execute the crafted format string. Lets check this address conten
 
 ![after_write](https://user-images.githubusercontent.com/45107680/113340709-e84ee880-9334-11eb-9aee-634dbb51fe2a.png)
 
-I've gained somewhat arbitrary write primitive to stack memory! Format string vulnerability gives 2 primitives - read AND write, which is very powerful. Moreover, I can write data byte-by-byte via ```$hhn``` specifier or 2 bytes at a time via ```%hn``` specified. Both of them will be used further. But how to use it to exploit the binary?
+I've gained somewhat arbitrary write primitive! Format string vulnerability gives 2 primitives - read AND write, which is very powerful. Moreover, I can write data byte-by-byte via ```$hhn``` specifier or 2 bytes at a time via ```%hn``` specified. Both of them will be used further. But how to use it to exploit the binary?
 There is a piece of code that seems to print a real flag:
 ```
 if (10000000 < (int)*points) {
