@@ -272,7 +272,7 @@ Lets take a look at the execution state (in this case, registers and stack conte
 ![stack_content_and_leaked_data](https://user-images.githubusercontent.com/45107680/113340360-77a7cc00-9334-11eb-8c2d-58fe07aca9b2.png)
 
 The binary is 64 bit, according to x86_64 calling conventions, the first 6 arguments are passed via registers (rdi, rsi, rdx, rcx, r8, r9 - in this order) and the rest are passed via stack.
-```rdi``` contains the format string address, so the first 5 leaked values are rsi, rdx, rcx, r8 and r9 values (in this order). Stack values start from 6th leaked value as described on the screenshot above.
+```rdi``` contains the format string address, so the first 5 leaked values are stored in ```rsi```, ```rdx```, ```rcx```, ```r8``` and ```r9``` registers (in this order). Stack content starts from 6th leaked value as described on the screenshot above.
 
 Lets try to write 0x1337 at address ```0x5555555592a0``` which is at 12th position among leaked values using previously described format string. 
 This is the value at address ```0x5555555592a0``` before the given command is executed:
